@@ -30,19 +30,19 @@ type gameState struct {
 }
 
 func parseProblems(rawProblems [][]string) ([]problem, error) {
-	var problems []problem
-	for _, rawProblem := range rawProblems {
+	result := make([]problem, len(rawProblems))
+	for i, rawProblem := range rawProblems {
 		if len(rawProblem) < 2 {
 			return nil, fmt.Errorf("invalid question format: %v", rawProblem)
 		}
 
-		q := problem{
+		result[i] = problem{
 			question: strings.TrimSpace(rawProblem[0]),
 			answer:   strings.TrimSpace(rawProblem[1]),
 		}
-		problems = append(problems, q)
 	}
-	return problems, nil
+
+	return result, nil
 }
 
 func loadProblems(config config) ([]problem, error) {
