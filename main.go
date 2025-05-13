@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/csv"
 	"flag"
 	"fmt"
@@ -8,11 +9,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type config struct {
-	questionFilePath string
-	shuffleQuestions bool
+	questionFilePath   string
+	shuffleQuestions   bool
+	timeLimitInSeconds int
 }
 
 func loadQuestions(config config) ([][]string, error) {
@@ -73,7 +76,11 @@ func main() {
 	var config config
 	flag.StringVar(&config.questionFilePath, "file", "./assets/default-questions.csv", "Path to the CSV file containing questions")
 	flag.BoolVar(&config.shuffleQuestions, "shuffle", false, "Shuffle questions before asking")
+	flag.IntVar(&config.timeLimitInSeconds, "time", 30, "Time limit for each question in seconds (0 for no limit)")
 	flag.Parse()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.timeLimitInSeconds)*time.Second)
+	defer cancel()
 
 	println("Welcome to Math Quiz!")
 	questions, err := loadQuestions(config)
@@ -85,16 +92,29 @@ func main() {
 	numberOfQuestions := len(questions)
 	totalScore := 0
 
-	for i, question := range questions {
-		result, err := askQuestion(i+1, numberOfQuestions, question)
-		if err != nil {
-			fmt.Println("Error asking question:", err)
-			return
+	done := make(chan bool)
+	go func() {
+		for i, question := range questions {
+			result, err := askQuestion(i+1, numberOfQuestions, question)
+			if err != nil {
+				fmt.Println("Error asking question:", err)
+				return
+			}
+
+			if result {
+				totalScore++
+			}
 		}
 
-		if result {
-			totalScore++
-		}
+		done <- true
+
+	}()
+
+	select {
+	case <-done:
+		fmt.Printf("Quiz complete! You answered %d out of %d questions correctly.\n!", totalScore, numberOfQuestions)
+	case <-ctx.Done():
+		fmt.Println("Time's up! You answered", totalScore, "out of", numberOfQuestions, "questions correctly.")
+		fmt.Println("Exiting the quiz.")
 	}
-	fmt.Printf("You answered %d out of %d questions correctly.\n", totalScore, numberOfQuestions)
 }
