@@ -79,14 +79,22 @@ func main() {
 	flag.IntVar(&config.timeLimitInSeconds, "time", 30, "Time limit for each question in seconds (0 for no limit)")
 	flag.Parse()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.timeLimitInSeconds)*time.Second)
-	defer cancel()
-
 	println("Welcome to Math Quiz!")
 	questions, err := loadQuestions(config)
 	if err != nil {
 		fmt.Println("Error loading questions:", err)
 		return
+	}
+
+	var ctx context.Context
+	var cancel context.CancelFunc
+
+	if config.timeLimitInSeconds == 0 {
+		ctx = context.Background()
+	} else {
+		fmt.Printf("You have %d seconds to answer each question.\n", config.timeLimitInSeconds)
+		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(config.timeLimitInSeconds)*time.Second)
+		defer cancel()
 	}
 
 	numberOfQuestions := len(questions)
